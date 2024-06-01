@@ -112,23 +112,60 @@ plymouth-blend
 
 # OS installation and tweaks
 filesystem-blend
-lsb-release-blend
 blend-inst-git
 python-yaml
 jade-gui
 
-# Keyring
-blend-keyring
-
 # Spice
 spice-vdagent
 
-# Chaotic AUR
-chaotic-keyring
-chaotic-mirrorlist
-
-gnome
-gnome-software
-gnome-software-packagekit-plugin
+# Desktop
+baobab
+epiphany
+evince
+gdm
+gnome-backgrounds
+gnome-calendar
+gnome-clocks
+gnome-color-manager
+gnome-connections
+gnome-console
+gnome-control-center
+gnome-disk-utility
+gnome-keyring
+gnome-logs
+gnome-menus
+gnome-remote-desktop
+gnome-session
+gnome-settings-daemon
+gnome-shell
+gnome-shell-extensions
+gnome-user-docs
+gnome-user-share
+grilo-plugins
+gvfs
+gvfs-afc
+gvfs-dnssd
+gvfs-goa
+gvfs-google
+gvfs-gphoto2
+gvfs-mtp
+gvfs-nfs
+gvfs-onedrive
+gvfs-smb
+gvfs-wsdd
+loupe
+malcontent
+nautilus
+orca
+rygel
+tecla
+tracker3-miners
+xdg-desktop-portal-gnome
+xdg-user-dirs-gtk
+yelp
 firefox
 flatpak
+
+akshara-git
+grub
