@@ -107,9 +107,6 @@ pipewire-alsa
 wireplumber
 networkmanager
 
-# Startup
-plymouth-blend
-
 # OS installation and tweaks
 filesystem-blend
 blend-inst-git
