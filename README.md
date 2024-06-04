@@ -8,11 +8,11 @@ sudo pacman -S archiso
 ```
 ### 2. Pull the repository
 ```
-git clone https://github.com/blend-os/blendiso.git
+git clone https://git.blendos.co/blendOS/image-builder.git
 ```
 ### 3. Build
 ```
-cd blendiso
+cd image-builder
 sudo mkarchiso -v -w workdir/ -o out/ .
 ```
 Once the building process is finished you can find the ISO image in the `./out` directory.
