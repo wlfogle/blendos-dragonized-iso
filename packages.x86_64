@@ -63,7 +63,6 @@ pcsclite
 ppp
 pptpclient
 pv
-qemu-guest-agent
 reflector
 rsync
 smartmontools
