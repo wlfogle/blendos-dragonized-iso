@@ -86,7 +86,7 @@ xfsprogs
 xl2tpd
 
 ### On-ISO drivers
-nvidia
+nvidia-dkms
 
 ### blendOS
 # Core packages
