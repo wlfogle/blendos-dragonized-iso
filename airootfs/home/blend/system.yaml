@@ -1,0 +1,454 @@
+version: 1
+
+system:
+  hostname: lou-eon17x
+  timezone: Etc/UTC
+  locale: en_US.UTF-8
+
+  users:
+    - name: media
+      groups:
+        - wheel
+        - video
+        - render
+        - kvm
+        - libvirt
+        - input
+
+  packages:
+    arch:
+      # Base/system
+      - networkmanager
+      - wireguard-tools
+      - openssh
+      - git
+      # Desktop (lightweight, similar to repo's LXDE usage)
+      - lxde
+      - lightdm
+      - xorg-xinit
+      - xterm
+      # Virtual displays + remote access
+      - xorg-server-xvfb
+      - x11vnc
+      - tigervnc
+      - novnc
+      - xorg-xwininfo
+      # Virtualization + Looking Glass
+      - qemu-desktop
+      - libvirt
+      - virt-manager
+      - edk2-ovmf
+      - looking-glass
+      # Containers (choose one workflow; podman is default on many immutables)
+      - podman
+      - podman-docker
+      - podman-compose
+      # Optional browser and terminal
+      - firefox
+      - kitty
+      # Media server packages
+      - ffmpeg
+      - intel-media-driver
+      - libva-intel-driver
+
+  services:
+    enable:
+      - NetworkManager.service
+      - lightdm.service
+      - libvirtd.service
+      # Enable Xvfb/VNC/noVNC instances (templated)
+      - xvfb-display@99.service
+      - xvfb-display@100.service
+      - xvfb-display@101.service
+      - xvfb-display@102.service
+      - xvfb-display@103.service
+      - xvfb-display@104.service
+      - xvfb-vnc@99.service
+      - xvfb-vnc@100.service
+      - xvfb-vnc@101.service
+      - xvfb-vnc@102.service
+      - xvfb-vnc@103.service
+      - xvfb-vnc@104.service
+      - novnc@99.service
+      - novnc@100.service
+      - novnc@101.service
+      - novnc@102.service
+      - novnc@103.service
+      - novnc@104.service
+      # Compose-style media stack
+      - media-stack.service
+
+  files:
+    # Xvfb templated unit (instances 99–104)
+    - path: /etc/systemd/system/xvfb-display@.service
+      content: |
+        [Unit]
+        Description=Xvfb Virtual Display :%i
+        After=network.target
+        Wants=network.target
+
+        [Service]
+        Type=simple
+        User=root
+        Group=root
+        ExecStart=/usr/bin/Xvfb :%i -screen 0 1920x1080x24 -ac +extension GLX +render -noreset
+        ExecReload=/bin/kill -USR1 $MAINPID
+        KillMode=mixed
+        Restart=always
+        RestartSec=5
+        Environment=DISPLAY=:%i
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # VNC templated unit
+    - path: /etc/systemd/system/xvfb-vnc@.service
+      content: |
+        [Unit]
+        Description=VNC Server for Xvfb Display :%i
+        After=xvfb-display@%i.service
+        Requires=xvfb-display@%i.service
+
+        [Service]
+        Type=simple
+        User=root
+        Group=root
+        Environment=DISPLAY=:%i
+        ExecStartPre=/bin/bash -c 'sleep 2'
+        ExecStart=/usr/bin/x11vnc -forever -shared -rfbport 59%i -display :%i -noxdamage
+        Restart=always
+        RestartSec=5
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # noVNC templated unit
+    - path: /etc/systemd/system/novnc@.service
+      content: |
+        [Unit]
+        Description=noVNC Web VNC Client for Display :%i
+        After=xvfb-vnc@%i.service
+        Requires=xvfb-vnc@%i.service
+
+        [Service]
+        Type=simple
+        User=root
+        Group=root
+        ExecStart=/usr/share/novnc/utils/novnc_proxy --vnc localhost:59%i --listen 608%i
+        Restart=always
+        RestartSec=5
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # Media stack podman-compose service
+    - path: /etc/systemd/system/media-stack.service
+      content: |
+        [Unit]
+        Description=Media Stack Containers
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        WorkingDirectory=/opt/media-stack
+        ExecStart=/usr/bin/podman-compose up -d
+        ExecStop=/usr/bin/podman-compose down
+        TimeoutStartSec=0
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # Media stack compose file
+    - path: /opt/media-stack/docker-compose.yml
+      content: |
+        version: '3.8'
+        
+        services:
+          plex:
+            image: plexinc/pms-docker:latest
+            container_name: plex
+            network_mode: host
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+              - VERSION=docker
+            volumes:
+              - /opt/media-stack/plex:/config
+              - /mnt/media:/media
+              - /tmp:/transcode
+            devices:
+              - /dev/dri:/dev/dri
+            restart: unless-stopped
+
+          jellyfin:
+            image: jellyfin/jellyfin:latest
+            container_name: jellyfin
+            network_mode: host
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+            volumes:
+              - /opt/media-stack/jellyfin:/config
+              - /mnt/media:/media
+            devices:
+              - /dev/dri:/dev/dri
+            restart: unless-stopped
+
+          sonarr:
+            image: linuxserver/sonarr:latest
+            container_name: sonarr
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+            volumes:
+              - /opt/media-stack/sonarr:/config
+              - /mnt/downloads:/downloads
+              - /mnt/media/tv:/tv
+            ports:
+              - 8989:8989
+            restart: unless-stopped
+
+          radarr:
+            image: linuxserver/radarr:latest
+            container_name: radarr
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+            volumes:
+              - /opt/media-stack/radarr:/config
+              - /mnt/downloads:/downloads
+              - /mnt/media/movies:/movies
+            ports:
+              - 7878:7878
+            restart: unless-stopped
+
+          qbittorrent:
+            image: linuxserver/qbittorrent:latest
+            container_name: qbittorrent
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+              - WEBUI_PORT=8080
+            volumes:
+              - /opt/media-stack/qbittorrent:/config
+              - /mnt/downloads:/downloads
+            ports:
+              - 8080:8080
+              - 6881:6881
+              - 6881:6881/udp
+            restart: unless-stopped
+
+          overseerr:
+            image: sctx/overseerr:latest
+            container_name: overseerr
+            environment:
+              - LOG_LEVEL=debug
+              - TZ=Etc/UTC
+            volumes:
+              - /opt/media-stack/overseerr:/app/config
+            ports:
+              - 5055:5055
+            restart: unless-stopped
+
+          prowlarr:
+            image: linuxserver/prowlarr:latest
+            container_name: prowlarr
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Etc/UTC
+            volumes:
+              - /opt/media-stack/prowlarr:/config
+            ports:
+              - 9696:9696
+            restart: unless-stopped
+
+    # Looking Glass shared memory setup
+    - path: /etc/systemd/system/looking-glass-shm.service
+      content: |
+        [Unit]
+        Description=Looking Glass Shared Memory
+        After=multi-user.target
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/bin/bash -c 'mkdir -p /dev/shm && touch /dev/shm/looking-glass && chown root:kvm /dev/shm/looking-glass && chmod 660 /dev/shm/looking-glass'
+        
+        [Install]
+        WantedBy=multi-user.target
+
+    # VFIO kernel modules
+    - path: /etc/modules-load.d/vfio.conf
+      content: |
+        vfio
+        vfio_iommu_type1
+        vfio_pci
+        vfio_virqfd
+        kvmfr
+
+    # Looking Glass udev rule
+    - path: /etc/udev/rules.d/99-kvmfr.rules
+      content: |
+        SUBSYSTEM=="kvmfr", OWNER="root", GROUP="kvm", MODE="0660"
+
+    # System status script (similar to original)
+    - path: /usr/local/bin/system-status.sh
+      mode: '0755'
+      content: |
+        #!/bin/bash
+        echo "🚀 MEDIA SERVER STATUS"
+        echo "======================"
+        date
+        echo ""
+        
+        echo "🌐 Network:"
+        ip addr show | grep -E "inet.*wl|inet.*eth" | head -3
+        
+        echo ""
+        echo "🖥️  Virtual Displays:"
+        for display in 99 100 101 102 103 104; do
+            if systemctl is-active --quiet xvfb-display@${display}.service; then
+                echo "  ✅ Display :$display - Active"
+            else
+                echo "  ❌ Display :$display - Inactive"
+            fi
+        done
+        
+        echo ""
+        echo "🎮 Looking Glass:"
+        ls -la /dev/shm/looking-glass 2>/dev/null || echo "  Not configured"
+        
+        echo ""
+        echo "🎬 Media Stack:"
+        podman ps --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || echo "  Containers not ready"
+
+    # Container GUI helper script
+    - path: /usr/local/bin/container-gui-helper.sh
+      mode: '0755'
+      content: |
+        #!/bin/bash
+        DISPLAY_NUM=${1:-99}
+        CONTAINER_NAME=${2:-gui-container}
+        
+        echo "🖥️  Starting GUI container on display :$DISPLAY_NUM"
+        systemctl start xvfb-display@${DISPLAY_NUM}.service || true
+        systemctl start xvfb-vnc@${DISPLAY_NUM}.service || true
+        systemctl start novnc@${DISPLAY_NUM}.service || true
+        
+        echo "✅ Display :$DISPLAY_NUM ready for GUI containers"
+        echo "🌐 VNC: localhost:$(( 5900 + DISPLAY_NUM ))"
+        echo "🌐 Web VNC: http://localhost:$(( 6080 + DISPLAY_NUM ))"
+        echo ""
+        echo "🔧 Run GUI container:"
+        echo "podman run -d --name $CONTAINER_NAME -e DISPLAY=:$DISPLAY_NUM -v /tmp/.X11-unix:/tmp/.X11-unix:rw --net=host ubuntu:22.04"
+
+    # Xvfb management script
+    - path: /usr/local/bin/xvfb-manager.sh
+      mode: '0755'
+      content: |
+        #!/bin/bash
+        ACTION=${1:-status}
+        DISPLAY_NUM=${2:-all}
+        
+        case $ACTION in
+            "start")
+                if [ "$DISPLAY_NUM" = "all" ]; then
+                    for display in 99 100 101 102 103 104; do
+                        systemctl start xvfb-display@${display}.service
+                        echo "✅ Started display :$display"
+                    done
+                else
+                    systemctl start xvfb-display@${DISPLAY_NUM}.service
+                    echo "✅ Started display :$DISPLAY_NUM"
+                fi
+                ;;
+            "stop")
+                if [ "$DISPLAY_NUM" = "all" ]; then
+                    for display in 99 100 101 102 103 104; do
+                        systemctl stop xvfb-display@${display}.service
+                        echo "🛑 Stopped display :$display"
+                    done
+                else
+                    systemctl stop xvfb-display@${DISPLAY_NUM}.service
+                    echo "🛑 Stopped display :$DISPLAY_NUM"
+                fi
+                ;;
+            "status")
+                echo "📊 Virtual Display Status:"
+                for display in 99 100 101 102 103 104; do
+                    if systemctl is-active --quiet xvfb-display@${display}.service; then
+                        echo "  ✅ Display :$display - Active"
+                    else
+                        echo "  ❌ Display :$display - Inactive"
+                    fi
+                done
+                ;;
+            *)
+                echo "Usage: $0 {start|stop|status} [display_number|all]"
+                ;;
+        esac
+
+    # Desktop shortcuts
+    - path: /home/media/Desktop/System-Status.desktop
+      mode: '0755'
+      content: |
+        [Desktop Entry]
+        Version=1.0
+        Type=Application
+        Name=System Status
+        Comment=Check media server status
+        Exec=/usr/local/bin/system-status.sh
+        Icon=applications-system
+        Terminal=true
+        Categories=System;
+
+    - path: /home/media/Desktop/Looking-Glass.desktop
+      mode: '0755'
+      content: |
+        [Desktop Entry]
+        Version=1.0
+        Type=Application
+        Name=Looking Glass
+        Comment=Ultra-low latency VM access
+        Exec=looking-glass-client
+        Icon=application-x-executable
+        Terminal=false
+        Categories=System;
+
+    - path: /home/media/Desktop/Virt-Manager.desktop
+      mode: '0755'
+      content: |
+        [Desktop Entry]
+        Version=1.0
+        Type=Application
+        Name=Virtual Machine Manager
+        Comment=Manage virtual machines
+        Exec=virt-manager
+        Icon=virt-manager
+        Terminal=false
+        Categories=System;
+
+  kernel:
+    parameters:
+      # Enable IOMMU for GPU passthrough
+      - intel_iommu=on
+      - iommu=pt
+      - video=efifb:off
+
+  commands:
+    - name: Create media directories
+      command: mkdir -p /mnt/media/movies /mnt/media/tv /mnt/media/music /mnt/downloads /opt/media-stack
+    
+    - name: Set media directory ownership
+      command: chown -R 1000:1000 /mnt/media /mnt/downloads /opt/media-stack
+    
+    - name: Enable Looking Glass shared memory service
+      command: systemctl enable looking-glass-shm.service
