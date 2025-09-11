@@ -6,14 +6,64 @@ system:
   locale: en_US.UTF-8
 
   users:
-    - name: media
+    - name: lou
       groups:
         - wheel
+        - sudo
+        - root
+        - adm
+        - sys
+        - tty
+        - disk
+        - lp
+        - mail
+        - news
+        - uucp
+        - man
+        - proxy
+        - kmem
+        - dialout
+        - fax
+        - voice
+        - cdrom
+        - floppy
+        - tape
+        - audio
+        - dip
+        - www-data
+        - backup
+        - operator
+        - list
+        - irc
+        - src
+        - gnats
+        - shadow
+        - utmp
         - video
-        - render
-        - kvm
-        - libvirt
+        - sasl
+        - plugdev
+        - staff
+        - games
+        - users
+        - nogroup
+        - systemd-journal
+        - systemd-network
+        - systemd-resolve
+        - systemd-timesync
         - input
+        - kvm
+        - render
+        - sgx
+        - libvirt
+        - docker
+        - podman
+        - vboxusers
+        - wireshark
+        - scanner
+        - bluetooth
+        - netdev
+        - lpadmin
+        - sambashare
 
   packages:
     arch:
@@ -395,46 +445,6 @@ system:
                 echo "Usage: $0 {start|stop|status} [display_number|all]"
                 ;;
         esac
-
-    # Desktop shortcuts
-    - path: /home/media/Desktop/System-Status.desktop
-      mode: '0755'
-      content: |
-        [Desktop Entry]
-        Version=1.0
-        Type=Application
-        Name=System Status
-        Comment=Check media server status
-        Exec=/usr/local/bin/system-status.sh
-        Icon=applications-system
-        Terminal=true
-        Categories=System;
-
-    - path: /home/media/Desktop/Looking-Glass.desktop
-      mode: '0755'
-      content: |
-        [Desktop Entry]
-        Version=1.0
-        Type=Application
-        Name=Looking Glass
-        Comment=Ultra-low latency VM access
-        Exec=looking-glass-client
-        Icon=application-x-executable
-        Terminal=false
-        Categories=System;
-
-    - path: /home/media/Desktop/Virt-Manager.desktop
-      mode: '0755'
-      content: |
-        [Desktop Entry]
-        Version=1.0
-        Type=Application
-        Name=Virtual Machine Manager
-        Comment=Manage virtual machines
-        Exec=virt-manager
-        Icon=virt-manager
-        Terminal=false
-        Categories=System;
 
   kernel:
     parameters:
