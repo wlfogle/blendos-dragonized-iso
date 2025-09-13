@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="blendOS"
-iso_label="BLENDOS_$(date +%Y%m)"
+iso_name="blendOS-Dragonized"
+iso_label="BLENDOS_DRAGONIZED_$(date +%Y%m)"
 iso_publisher="blendOS <https://blendos.co>"
 iso_application="blendOS Live/Rescue CD"
 iso_version="$(date +%Y.%m.%d)"
